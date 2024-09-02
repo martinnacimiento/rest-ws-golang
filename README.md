@@ -2,6 +2,13 @@
 
 A RESTful API and WebSocket service built with Go. This project serves as a learning exercise, where I implement various features such as authentication, CRUD operations for posts, and real-time communication using WebSockets.
 
+## Features
+
+- [x] Authentication
+- [ ] CRUD of Posts
+- [ ] WebSockets
+- [ ] Database integration with PostgreSQL
+
 
 ## 🚀 Getting started
 To get started, ensure you have Docker installed. Then, follow these steps to set up the database and run the application:
