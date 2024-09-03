@@ -2,12 +2,14 @@ package handlers
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"time"
 
 	"github.com/go-playground/validator/v10"
 	"github.com/golang-jwt/jwt"
 	"golang.org/x/crypto/bcrypt"
+	"tincho.dev/rest-ws/middlewares"
 	"tincho.dev/rest-ws/models"
 	"tincho.dev/rest-ws/repositories"
 	"tincho.dev/rest-ws/server"
@@ -188,5 +190,25 @@ func SignInHandler(s server.Server) http.HandlerFunc {
 
 		w.WriteHeader(http.StatusOK)
 		json.NewEncoder(w).Encode(response)
+	}
+}
+
+func MeHandler(s server.Server) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+
+		claims := r.Context().Value(middlewares.ClaimsKey).(*models.AppClaims)
+
+		user, err := repositories.FindUserById(r.Context(), claims.UserId)
+
+		fmt.Println(user, err)
+
+		if err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+
+		w.WriteHeader(http.StatusOK)
+		json.NewEncoder(w).Encode(user)
 	}
 }

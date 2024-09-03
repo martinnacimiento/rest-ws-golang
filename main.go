@@ -8,6 +8,7 @@ import (
 	"github.com/gorilla/mux"
 	"github.com/joho/godotenv"
 	"tincho.dev/rest-ws/handlers"
+	"tincho.dev/rest-ws/middlewares"
 	"tincho.dev/rest-ws/server"
 )
 
@@ -36,8 +37,11 @@ func main() {
 }
 
 func binder(s server.Server, r *mux.Router) {
+	r.Use(middlewares.AuthMiddleware(s))
+
 	r.HandleFunc("/", handlers.HomeHandler(s)).Methods("GET")
 	r.HandleFunc("/signup", handlers.SignUpHandler(s)).Methods("POST")
 	r.HandleFunc("/signin", handlers.SignInHandler(s)).Methods("POST")
 	r.HandleFunc("/users", handlers.FindAllUsersHandler(s)).Methods("GET")
+	r.HandleFunc("/users/me", handlers.MeHandler(s)).Methods("GET")
 }
