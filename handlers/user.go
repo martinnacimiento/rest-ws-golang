@@ -2,61 +2,30 @@ package handlers
 
 import (
 	"encoding/json"
-	"fmt"
 	"net/http"
+	"strconv"
 	"time"
 
-	"github.com/go-playground/validator/v10"
 	"github.com/golang-jwt/jwt"
+	"github.com/gorilla/mux"
 	"golang.org/x/crypto/bcrypt"
+	"tincho.dev/rest-ws/dto"
 	"tincho.dev/rest-ws/middlewares"
 	"tincho.dev/rest-ws/models"
 	"tincho.dev/rest-ws/repositories"
 	"tincho.dev/rest-ws/server"
+	"tincho.dev/rest-ws/utils"
 )
 
 const (
 	EXPIRATION_TIME = time.Hour * 24
 )
 
-type SignUpRequest struct {
-	Email    string `json:"email" validate:"required,email"`
-	Password string `json:"password" validate:"required,gt=8"`
-}
-
-type SignUpResponse struct {
-	Id    int64  `json:"id"`
-	Email string `json:"email"`
-}
-
-type SignInRequest struct {
-	Email    string `json:"email" validate:"required,email"`
-	Password string `json:"password" validate:"required,gt=8"`
-}
-
-type SignInResponse struct {
-	Token string `json:"token"`
-}
-
 func SignUpHandler(s server.Server) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 
-		var payload SignUpRequest
-		err := json.NewDecoder(r.Body).Decode(&payload)
-
-		if err != nil {
-			w.WriteHeader(http.StatusBadRequest)
-
-			json.NewEncoder(w).Encode(map[string]string{
-				"error": "Invalid request",
-			})
-
-			return
-		}
-
-		validate := validator.New()
-		err = validate.Struct(payload)
+		payload, err := utils.Validate[dto.SignUpRequest](r)
 
 		if err != nil {
 			w.WriteHeader(http.StatusBadRequest)
@@ -99,7 +68,7 @@ func SignUpHandler(s server.Server) http.HandlerFunc {
 			return
 		}
 
-		response := SignUpResponse{
+		response := dto.SignUpResponse{
 			Id:    user.Id,
 			Email: user.Email,
 		}
@@ -120,8 +89,78 @@ func FindAllUsersHandler(s server.Server) http.HandlerFunc {
 			return
 		}
 
+		response := make([]dto.FindAllUsersResponse, 0)
+
+		for _, user := range users {
+			response = append(response, dto.FindAllUsersResponse{
+				Id:    user.Id,
+				Email: user.Email,
+			})
+		}
+
 		w.WriteHeader(http.StatusOK)
-		json.NewEncoder(w).Encode(users)
+		json.NewEncoder(w).Encode(response)
+	}
+}
+
+func ListUsersHandler(s server.Server) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+
+		offset, limit, err := utils.GetPagination(r)
+
+		if err != nil {
+			w.WriteHeader(http.StatusBadRequest)
+			return
+		}
+
+		users, err := repositories.ListUsers(r.Context(), offset, limit)
+
+		if err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+
+		response := make([]dto.FindAllUsersResponse, 0)
+
+		for _, user := range users {
+			response = append(response, dto.FindAllUsersResponse{
+				Id:    user.Id,
+				Email: user.Email,
+			})
+		}
+
+		w.WriteHeader(http.StatusOK)
+		json.NewEncoder(w).Encode(response)
+	}
+}
+
+func FindOneUserHandler(s server.Server) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+
+		userIdParam := mux.Vars(r)["id"]
+		userId, err := strconv.ParseInt(userIdParam, 10, 64)
+
+		if err != nil {
+			w.WriteHeader(http.StatusBadRequest)
+			return
+		}
+
+		user, err := repositories.FindUserById(r.Context(), userId)
+
+		if err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+
+		response := &dto.FindOneUserResponse{
+			Id:    user.Id,
+			Email: user.Email,
+		}
+
+		w.WriteHeader(http.StatusOK)
+		json.NewEncoder(w).Encode(response)
 	}
 }
 
@@ -129,21 +168,7 @@ func SignInHandler(s server.Server) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 
-		var payload SignInRequest
-		err := json.NewDecoder(r.Body).Decode(&payload)
-
-		if err != nil {
-			w.WriteHeader(http.StatusBadRequest)
-
-			json.NewEncoder(w).Encode(map[string]string{
-				"error": "Invalid request",
-			})
-
-			return
-		}
-
-		validate := validator.New()
-		err = validate.Struct(payload)
+		payload, err := utils.Validate[dto.SignInRequest](r)
 
 		if err != nil {
 			w.WriteHeader(http.StatusBadRequest)
@@ -184,7 +209,7 @@ func SignInHandler(s server.Server) http.HandlerFunc {
 			return
 		}
 
-		response := &SignInResponse{
+		response := &dto.SignInResponse{
 			Token: signedToken,
 		}
 
@@ -201,7 +226,71 @@ func MeHandler(s server.Server) http.HandlerFunc {
 
 		user, err := repositories.FindUserById(r.Context(), claims.UserId)
 
-		fmt.Println(user, err)
+		if err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+
+		response := &dto.GetMeDataResponse{
+			Id:    user.Id,
+			Email: user.Email,
+			Posts: user.Posts,
+		}
+
+		w.WriteHeader(http.StatusOK)
+		json.NewEncoder(w).Encode(response)
+	}
+}
+
+func UpdateUserHandler(s server.Server) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+
+		claims := r.Context().Value(middlewares.ClaimsKey).(*models.AppClaims)
+
+		payload, err := utils.Validate[dto.UpdateUserRequest](r)
+
+		if err != nil {
+			w.WriteHeader(http.StatusBadRequest)
+			json.NewEncoder(w).Encode(map[string]string{
+				"error:": "Invalid request",
+			})
+			return
+		}
+
+		user, err := repositories.FindUserById(r.Context(), claims.UserId)
+
+		if err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+
+		user.Email = payload.Email
+
+		err = repositories.UpdateOneUser(r.Context(), user)
+
+		if err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+
+		response := &dto.UpdateUserResponse{
+			Id:    user.Id,
+			Email: user.Email,
+		}
+
+		w.WriteHeader(http.StatusOK)
+		json.NewEncoder(w).Encode(response)
+	}
+}
+
+func DeleteUserHandler(s server.Server) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+
+		claims := r.Context().Value(middlewares.ClaimsKey).(*models.AppClaims)
+
+		err := repositories.DeleteOneUser(r.Context(), claims.UserId)
 
 		if err != nil {
 			w.WriteHeader(http.StatusInternalServerError)
@@ -209,6 +298,5 @@ func MeHandler(s server.Server) http.HandlerFunc {
 		}
 
 		w.WriteHeader(http.StatusOK)
-		json.NewEncoder(w).Encode(user)
 	}
 }

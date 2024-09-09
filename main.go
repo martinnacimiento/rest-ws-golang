@@ -40,8 +40,23 @@ func binder(s server.Server, r *mux.Router) {
 	r.Use(middlewares.AuthMiddleware(s))
 
 	r.HandleFunc("/", handlers.HomeHandler(s)).Methods("GET")
+
+	// Auth routes
 	r.HandleFunc("/signup", handlers.SignUpHandler(s)).Methods("POST")
 	r.HandleFunc("/signin", handlers.SignInHandler(s)).Methods("POST")
+
+	// User routes
 	r.HandleFunc("/users", handlers.FindAllUsersHandler(s)).Methods("GET")
+	r.HandleFunc("/users/list", handlers.ListUsersHandler(s)).Methods("GET")
 	r.HandleFunc("/users/me", handlers.MeHandler(s)).Methods("GET")
+	r.HandleFunc("/users/{id}", handlers.FindOneUserHandler(s)).Methods("GET")
+	r.HandleFunc("/users/{id}", handlers.UpdateUserHandler(s)).Methods("PUT")
+	r.HandleFunc("/users/{id}", handlers.DeleteUserHandler(s)).Methods("DELETE")
+
+	// Post routes
+	r.HandleFunc("/posts", handlers.CreatePostHandler(s)).Methods("POST")
+	r.HandleFunc("/posts/{id}", handlers.FindOnePostHandler(s)).Methods("GET")
+	r.HandleFunc("/posts", handlers.FindAllPostsHandler(s)).Methods("GET")
+	r.HandleFunc("/posts/{id}", handlers.UpdateOnePostHandler(s)).Methods("PUT")
+	r.HandleFunc("/posts/{id}", handlers.DeleteOnePostHandler(s)).Methods("DELETE")
 }
