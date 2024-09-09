@@ -2,12 +2,22 @@
 
 A RESTful API and WebSocket service built with Go. This project serves as a learning exercise, where I implement various features such as authentication, CRUD operations for posts, and real-time communication using WebSockets.
 
+## Technologies
+- Validator
+- PostgreSQL
+- Docker
+- JWT
+- Mux
+
 ## Features
 
 - [x] Authentication
-- [ ] CRUD of Posts
+- [x] Users's CRUD
+- [x] Post's CRUD
+- [x] Database integration with PostgreSQL
+- [x] User's pagination
+- [x] Endpoints validations
 - [ ] WebSockets
-- [ ] Database integration with PostgreSQL
 
 
 ## 🚀 Getting started
